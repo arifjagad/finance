@@ -22,6 +22,8 @@ import { useAuth } from "@/contexts/auth-context";
 
 type AuthMode = "login" | "register";
 
+const phoneRegex = /^\+62[1-9][0-9]{8,11}$/;
+
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -29,6 +31,10 @@ const loginSchema = z.object({
 
 const registerSchema = loginSchema.extend({
   fullName: z.string().min(3, "Full name must be at least 3 characters"),
+  phoneNumber: z.string()
+    .regex(phoneRegex, "Phone number must start with +62 and be 10-13 digits long")
+    .min(10, "Phone number must be at least 10 digits")
+    .max(13, "Phone number must not exceed 13 digits"),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -48,6 +54,7 @@ export function AuthForm() {
       email: "",
       password: "",
       fullName: "",
+      phoneNumber: "+62",
     },
   });
 
@@ -87,26 +94,29 @@ export function AuthForm() {
 
         if (authError) throw authError;
 
-        if (authData.session) {
+        if (authData.user) {
           // Create profile
           const { error: profileError } = await supabase
             .from("profiles")
             .insert({
-              id: authData.user?.id,
+              id: authData.user.id,
               email: values.email,
               full_name: values.fullName,
+              phone_number: values.phoneNumber,
               created_at: new Date().toISOString(),
               currency: "$",
             });
 
           if (profileError) throw profileError;
           
-          setSession(authData.session);
-          toast({
-            title: "Account created successfully",
-            description: "Welcome to FinTrack!",
-          });
-          navigate("/dashboard");
+          if (authData.session) {
+            setSession(authData.session);
+            toast({
+              title: "Account created successfully",
+              description: "Welcome to FinTrack!",
+            });
+            navigate("/dashboard");
+          }
         }
       }
     } catch (error: any) {
@@ -134,19 +144,34 @@ export function AuthForm() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             {mode === "register" && (
-              <FormField
-                control={form.control}
-                name="fullName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <>
+                <FormField
+                  control={form.control}
+                  name="fullName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="John Doe" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="phoneNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="+628123456789" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
             )}
             <FormField
               control={form.control}
